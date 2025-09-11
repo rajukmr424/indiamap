@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Bharat Survey - Unit Tests</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 20px; background: #f7faff; }
+      .pass { color: #16a34a; }
+      .fail { color: #dc2626; }
+      pre { background: #0b1020; color: #cbd5e1; padding: 10px; overflow: auto; border-radius: 6px; }
+      .card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08); padding: 16px; margin-bottom: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Bharat Survey - Unit Tests</h1>
+    <p>Open developer console for details. Below is a summary.</p>
+    <div id="summary"></div>
+    <div id="details"></div>
+
+    <script src="/workspace/app.js"></script>
+    <script>
+      (function() {
+        const tests = [];
+        function test(name, fn) { tests.push({ name, fn }); }
+        function expect(actual) {
+          return {
+            toEqual(expected) {
+              const pass = JSON.stringify(actual) === JSON.stringify(expected);
+              if (!pass) throw new Error('Expected ' + JSON.stringify(expected) + ' but got ' + JSON.stringify(actual));
+            },
+            toBe(value) {
+              if (actual !== value) throw new Error('Expected ' + value + ' but got ' + actual);
+            },
+            toBeTruthy() { if (!actual) throw new Error('Expected truthy but got ' + actual); },
+            toBeFalsy() { if (actual) throw new Error('Expected falsy but got ' + actual); }
+          };
+        }
+
+        // -------- Tests --------
+        test('addForm adds a new form', () => {
+          const before = [];
+          const after = BS.addForm(before, { name: 'Test', description: '', fields: [] });
+          expect(after.length).toBe(1);
+          expect(after[0].name).toBe('Test');
+          expect(after[0].archived).toBeFalsy();
+        });
+
+        test('deleteFormsByIds removes forms by ids', () => {
+          const a = BS.addForm([], { name: 'A', fields: [] });
+          const id = a[0].id;
+          const after = BS.deleteFormsByIds(a, [id]);
+          expect(after.length).toBe(0);
+        });
+
+        test('setArchiveForIds archives and unarchives', () => {
+          let forms = BS.addForm([], { name: 'A', fields: [] });
+          const id = forms[0].id;
+          forms = BS.setArchiveForIds(forms, [id], true);
+          expect(forms[0].archived).toBeTruthy();
+          forms = BS.setArchiveForIds(forms, [id], false);
+          expect(forms[0].archived).toBeFalsy();
+        });
+
+        test('shareFormsWith adds share entry, deduplicated by email', () => {
+          let forms = BS.addForm([], { name: 'A', fields: [] });
+          const id = forms[0].id;
+          forms = BS.shareFormsWith(forms, [id], { email: 'x@example.com', permission: 'viewer' });
+          forms = BS.shareFormsWith(forms, [id], { email: 'x@example.com', permission: 'editor' });
+          expect(forms[0].sharedWith.length).toBe(1);
+          expect(forms[0].sharedWith[0].permission).toBe('editor');
+        });
+
+        test('validateProfile flags invalid entries', () => {
+          const bad = BS.validateProfile({ name: 'A', email: 'bad', phone: '123' });
+          expect(!!bad.name).toBeTruthy();
+          expect(!!bad.email).toBeTruthy();
+          expect(!!bad.phone).toBeTruthy();
+          const good = BS.validateProfile({ name: 'Alice', email: 'alice@example.com', phone: '9876543210' });
+          expect(Object.keys(good).length).toBe(0);
+        });
+
+        test('toCSV and toHTML produce strings', () => {
+          const f = { name: 'X', description: '', fields: [{ label: 'A', type: 'text', options: [] }] };
+          const csv = BS.toCSV(f);
+          const html = BS.toHTML(f);
+          expect(typeof csv).toBe('string');
+          expect(typeof html).toBe('string');
+        });
+
+        // -------- Runner --------
+        function run() {
+          const summary = document.getElementById('summary');
+          const details = document.getElementById('details');
+          let passed = 0;
+          tests.forEach(({ name, fn }) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            try {
+              fn();
+              console.log('\u2714', name);
+              card.innerHTML = `<strong class="pass">\u2714 ${name}</strong>`;
+              passed++;
+            } catch (e) {
+              console.error('\u2716', name, e);
+              card.innerHTML = `<strong class="fail">\u2716 ${name}</strong><pre>${e.stack || e.message}</pre>`;
+            }
+            details.appendChild(card);
+          });
+          summary.innerHTML = `<h2>${passed}/${tests.length} tests passed</h2>`;
+        }
+
+        run();
+      })();
+    </script>
+  </body>
+  </html>
+
